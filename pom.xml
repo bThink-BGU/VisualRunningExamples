@@ -18,7 +18,12 @@
         <dependency>
             <groupId>com.github.bthink-bgu</groupId>
             <artifactId>BPjs</artifactId>
-            <version>[0.8.0, 0.9.9]</version>
+            <version>0.9.2</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fifesoft</groupId>
+            <artifactId>rsyntaxtextarea</artifactId>
+            <version>2.6.1</version>
         </dependency>
     </dependencies>
     <description>Examples of BPrograms where the execution is demonstrated visually.</description>
