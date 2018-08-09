@@ -4,7 +4,7 @@
     
     <!-- Change these to match your group and artifact IDs -->
     <groupId>il.ac.bgu.cs.bp</groupId>
-    <artifactId>SampleBPjsProject</artifactId>
+    <artifactId>VisualRunningExamples</artifactId>
     <!-- / Change these to match your group and artifact IDs -->
     
     <version>0.5-DEV</version>
@@ -21,4 +21,5 @@
             <version>[0.8.0, 0.9.9]</version>
         </dependency>
     </dependencies>
+    <description>Examples of BPrograms where the execution is demonstrated visually.</description>
 </project>
