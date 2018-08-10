@@ -18,6 +18,8 @@ public class MazeTableCellRenderer implements TableCellRenderer {
     
     private final JLabel wallLbl, spaceLbl;
     
+    private int minimalAgeColorComp = 255;
+    
     public MazeTableCellRenderer() {
         Font f = new Font(Font.MONOSPACED, Font.PLAIN, 20);
         wallLbl = new JLabel();
@@ -43,17 +45,19 @@ public class MazeTableCellRenderer implements TableCellRenderer {
                     if ( cv.age == -1 ) {
                         spaceLbl.setBackground( Color.WHITE );
                     } else {
-                        int v = Math.min(128+(int)(15*cv.age),255);
+                        int v = Math.min(128+(int)(15*cv.age),minimalAgeColorComp);
                         spaceLbl.setBackground( new Color(v, v, 255));
                     }
                     spaceLbl.setText(cv.age == 0 ? "•" : String.valueOf(cv.value));
                     outputLabel = spaceLbl;
                     break;
+                    
                 case TARGET:
                     spaceLbl.setBackground(Color.YELLOW);
                     spaceLbl.setText(cv.age == 0 ? "•" : "t");
                     outputLabel = spaceLbl;
                     break;
+                    
                 case WALL:
                     wallLbl.setText(String.valueOf(cv.value));
                     outputLabel = wallLbl;
@@ -67,6 +71,10 @@ public class MazeTableCellRenderer implements TableCellRenderer {
             System.out.println("Value not a CellValue: " + value);
             return new JLabel("/!\\" + Objects.toString(value));
         }
+    }
+
+    public void setShowAnyAge(boolean anyAge) {
+        minimalAgeColorComp = anyAge ? 230 : 255;
     }
     
 }

@@ -1,11 +1,10 @@
 package il.ac.bgu.cs.bp.visualrunningexamples;
 
+import il.ac.bgu.cs.bp.bpjs.analysis.DfsBProgramVerifier;
+import il.ac.bgu.cs.bp.bpjs.analysis.Node;
+import il.ac.bgu.cs.bp.bpjs.analysis.VerificationResult;
 import il.ac.bgu.cs.bp.bpjs.execution.BProgramRunner;
-import il.ac.bgu.cs.bp.bpjs.execution.listeners.BProgramRunnerListener;
-import il.ac.bgu.cs.bp.bpjs.model.BEvent;
 import il.ac.bgu.cs.bp.bpjs.model.BProgram;
-import il.ac.bgu.cs.bp.bpjs.model.BThreadSyncSnapshot;
-import il.ac.bgu.cs.bp.bpjs.model.FailedAssertion;
 import il.ac.bgu.cs.bp.bpjs.model.StringBProgram;
 import il.ac.bgu.cs.bp.bpjs.model.eventselection.PausingEventSelectionStrategyDecorator;
 import il.ac.bgu.cs.bp.bpjs.model.eventselection.SimpleEventSelectionStrategy;
@@ -13,10 +12,11 @@ import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
 import javax.swing.Box;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
@@ -30,7 +30,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
-import javax.swing.ListModel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
@@ -49,13 +48,14 @@ public class MainWindowCtrl {
     private JTextArea mazeEditor;
     private JComboBox<String> programCB, mazeCB;
     private JTable mazeMonitorTable;
-    private MazeTableModel mazeTableModel;
+    MazeTableModel mazeTableModel;
     private JList logList;
     private final DefaultListModel<String> logModel = new DefaultListModel<>();
     private final MazeRepo mazes = new MazeRepo();
     private final CodeRepo codes = new CodeRepo();
     private JButton runBtn, verifyBtn, stopBtn;
     private final AtomicBoolean stopFlag = new AtomicBoolean(false);
+
     
     private static class StopException extends RuntimeException {
         // A very ugly way of stopping a BProgramRunner. 
@@ -82,7 +82,8 @@ public class MainWindowCtrl {
     private void runBprogram() {
         
         setInProgress(true);
-
+        mazeTableCellRenderer.setShowAnyAge(false);
+        
         // Setup the b-program from the source
         BProgram bprog = new StringBProgram(programEditor.getText() );
         BProgramRunner rnr = new BProgramRunner(bprog);
@@ -91,62 +92,7 @@ public class MainWindowCtrl {
         String mazeJs = mazeTableModel.getRows().stream().map( r -> "\"" + r + "\"").collect( joining(",", "maze=[", "];"));
         bprog.prependSource(mazeJs);
         
-        rnr.addListener( new BProgramRunnerListener() {
-            @Override
-            public void starting(BProgram bprog) {
-                addToLog("Starting...");
-            }
-
-            @Override
-            public void started(BProgram bp) {
-                addToLog("Started");
-            }
-
-            @Override
-            public void superstepDone(BProgram bp) {
-                addToLog("Superstep done - awaiting external events");
-                setInProgress(false); // generally not true, but here it is, since there's no environment.
-            }
-
-            @Override
-            public void ended(BProgram bp) {
-                addToLog("Ended");
-                setInProgress(false);
-            }
-
-            @Override
-            public void assertionFailed(BProgram bp, FailedAssertion theFailedAssertion) {
-                addToLog("Failed Assertion: " + theFailedAssertion.getMessage());
-            }
-
-            @Override
-            public void bthreadAdded(BProgram bp, BThreadSyncSnapshot theBThread) {
-                addToLog(" + " + theBThread.getName() + " added");
-            }
-
-            @Override
-            public void bthreadRemoved(BProgram bp, BThreadSyncSnapshot theBThread) {
-                addToLog(" - " + theBThread.getName() + " removed");
-            }
-
-            @Override
-            public void bthreadDone(BProgram bp, BThreadSyncSnapshot theBThread) {
-                addToLog(" - " + theBThread.getName() + " completed");
-            }
-
-            @Override
-            public void eventSelected(BProgram bp, BEvent theEvent) {
-                SwingUtilities.invokeLater(()->{
-                    String eventName = theEvent.getName();
-                    if ( eventName.startsWith("Enter") ) {
-                        String comps[] = eventName.substring(7).split(",");
-                        comps[1] = comps[1].replace(")", "");
-                        mazeTableModel.addCellEntry(Integer.valueOf(comps[1]), Integer.valueOf(comps[0]));
-                    }
-                    addToLog("Event: " + theEvent.toString());
-                });
-            }
-        });
+        rnr.addListener(new BProgramRunnerListenerImpl(this));
         
         // set pausing ESS
         PausingEventSelectionStrategyDecorator pausingESS =
@@ -183,14 +129,107 @@ public class MainWindowCtrl {
             }
         }).start();
     }
+    
+    private void verifyBProgram() {
+        setInProgress(true);
+        stopBtn.setEnabled(false);
+        
+        BProgram bprog = new StringBProgram(programEditor.getText() );
+        BProgramRunner rnr = new BProgramRunner(bprog);
+        
+        // add the maze
+        String mazeJs = mazeTableModel.getRows().stream().map( r -> "\"" + r + "\"").collect( joining(",", "maze=[", "];"));
+        bprog.prependSource(mazeJs);
+        
+        // Mix in the assumptions and requirements
+        bprog.appendSource(additionsEditor.getText());
+        
+        DfsBProgramVerifier vfr = new DfsBProgramVerifier();
+        vfr.setIterationCountGap(100);
+        
+        // we need the below for the assumption thread specifying we visit each
+        // cell at most once. This requirement results in false-positive deadlocks.
+        // Updated version should probably take this from the UI.
+        vfr.setDetectDeadlocks(false);
+        
+        vfr.setProgressListener( new DfsBProgramVerifier.ProgressListener() {
+            @Override
+            public void started(DfsBProgramVerifier v) {
+                addToLog("Verification started");
+            }
 
-    private void setInProgress(boolean inProgress) {
-        stopBtn.setEnabled(inProgress);
-        runBtn.setEnabled(!inProgress);
-        verifyBtn.setEnabled(!inProgress);
+            @Override
+            public void iterationCount(long count, long statesHit, DfsBProgramVerifier v) {
+                addToLog(" ~ " + count + " iterations, " + statesHit + " states visited.");
+            }
+
+            @Override
+            public void maxTraceLengthHit(List<Node> trace, DfsBProgramVerifier v) {
+                addToLog(" (max trace length hit)");
+            }
+
+            @Override
+            public void done(DfsBProgramVerifier v) {
+                addToLog("Verification done");
+                setInProgress(false);
+            }
+        });
+        
+        logModel.clear();
+        mazeTableModel.resetCellEntries();
+        
+        // go!
+        new Thread(()->{
+            try{
+                VerificationResult res = vfr.verify(bprog);
+                SwingUtilities.invokeLater(()->setVerificationResult(res));
+            } catch ( Exception e ) {
+                e.printStackTrace(System.out);
+                addToLog(e.getMessage());
+                setInProgress(false);
+            }
+        }).start();
+        
     }
     
-    private void addToLog( String msg ) {
+    private void setVerificationResult(VerificationResult res) {
+        mazeTableCellRenderer.setShowAnyAge(true);
+        addToLog("---");
+        addToLog("Verification completed: " + (res.isCounterExampleFound() ? "" : "no ") + "counterexample found.");
+        addToLog(String.format("Visited %,d states, crossing %,d edges.", res.getScannedStatesCount(), res.getEdgesScanned()));
+        addToLog(String.format("%,d milliseconds", res.getTimeMillies()));
+        
+        if ( ! res.isVerifiedSuccessfully() ) {
+            addToLog("Violation type: " + res.getViolationType() );
+            if ( res.getCounterExampleTrace() != null ) {
+                List<String> entryEventNames = res.getCounterExampleTrace().stream()
+                    .filter( node->node.getLastEvent() != null )
+                    .filter( node->node.getLastEvent().getName().startsWith("Enter") )
+                    .map( node -> node.getLastEvent().getName() )
+                    .collect( toList() );
+                
+                entryEventNames.forEach( s -> {
+                   String[] comps = s.substring(7).split(",");
+                    comps[1] = comps[1].replace(")", "");
+                    mazeTableModel.addCellEntry(Integer.valueOf(comps[1]), Integer.valueOf(comps[0])); 
+                });
+                
+                mazeTableModel.fireTableDataChanged();
+            }
+        }
+        
+    }
+    
+    
+    void setInProgress(boolean inProgress) {
+        SwingUtilities.invokeLater(()->{
+            stopBtn.setEnabled(inProgress);
+            runBtn.setEnabled(!inProgress);
+            verifyBtn.setEnabled(!inProgress);
+        });
+    }
+    
+    void addToLog( String msg ) {
         SwingUtilities.invokeLater(()->{
             if ( logModel.size() > 30*1024 ) {
                 logModel.clear();
@@ -226,6 +265,7 @@ public class MainWindowCtrl {
         
         runBtn.addActionListener(e->runBprogram());
         stopBtn.addActionListener( c -> stopFlag.set(true));
+        verifyBtn.addActionListener( a->verifyBProgram() );
     }
     
     private void createComponents() {
@@ -302,7 +342,8 @@ public class MainWindowCtrl {
         mazeMonitorTable.setRowSelectionAllowed(false);
         mazeMonitorTable.setFocusable(false);
         mazeMonitorTable.setRowHeight(35);
-        mazeMonitorTable.setDefaultRenderer(Object.class, new MazeTableCellRenderer());
+        mazeTableCellRenderer = new MazeTableCellRenderer();
+        mazeMonitorTable.setDefaultRenderer(Object.class, mazeTableCellRenderer);
         
         logList = new JList(logModel);
         Box top = Box.createVerticalBox();
@@ -317,6 +358,7 @@ public class MainWindowCtrl {
         addInsets(tabs);
         
     }
+    private MazeTableCellRenderer mazeTableCellRenderer;
     
     public static void main(String[] args) throws InterruptedException {
         
@@ -334,5 +376,6 @@ public class MainWindowCtrl {
         c.setBorder(insetBorder);
         return c;
     }
+
     
 }
