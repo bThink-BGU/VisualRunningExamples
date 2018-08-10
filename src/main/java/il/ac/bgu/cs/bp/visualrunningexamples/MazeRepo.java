@@ -21,7 +21,7 @@ public class MazeRepo {
     private final Map<String, String[]> mazes = new HashMap<>();
     
     public MazeRepo() {
-        try( InputStream in =Thread.currentThread().getContextClassLoader().getResourceAsStream("mazes.txt");
+        try( InputStream in = Thread.currentThread().getContextClassLoader().getResourceAsStream("mazes.txt");
              BufferedReader rdr = new BufferedReader( new InputStreamReader(in) ) 
             ) {
             
