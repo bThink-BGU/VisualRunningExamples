@@ -1,6 +1,7 @@
 package il.ac.bgu.cs.bp.visualrunningexamples;
 
 import java.awt.BorderLayout;
+import java.awt.Dimension;
 import java.awt.Font;
 import java.util.Arrays;
 import static java.util.stream.Collectors.joining;
@@ -32,6 +33,7 @@ public class MainWindowCtrl {
     private JTextArea mazeEditor;
     private JComboBox<String> programCB, mazeCB;
     private JTable mazeMonitorTable;
+    private MazeTableModel mazeTableModel;
     private JList logList;
     private final MazeRepo mazes = new MazeRepo();
     private final CodeRepo codes = new CodeRepo();
@@ -69,6 +71,12 @@ public class MainWindowCtrl {
             programEditor.setCaretPosition(0);
         });
         
+        tabs.addChangeListener( changeEvt -> {
+           if ( tabs.getSelectedIndex() == 2 ) {
+               // we moved to the monitor
+               mazeTableModel.setRows(Arrays.asList(mazeEditor.getText().split("\\n")));
+           }
+        });
     }
     
     private void createComponents() {
@@ -126,8 +134,16 @@ public class MainWindowCtrl {
         //
         ////
         // monitor tab
+        mazeTableModel = new MazeTableModel();
+        mazeMonitorTable = new JTable(mazeTableModel);
+        mazeMonitorTable.setFillsViewportHeight(true);
+        mazeMonitorTable.setIntercellSpacing(new Dimension(0,0));
+        mazeMonitorTable.setCellSelectionEnabled(false);
+        mazeMonitorTable.setRowSelectionAllowed(false);
+        mazeMonitorTable.setFocusable(false);
+        mazeMonitorTable.setRowHeight(35);
+        mazeMonitorTable.setDefaultRenderer(Object.class, new MazeTableCellRenderer());
         
-        mazeMonitorTable = new JTable();
         logList = new JList();
         topPanePanel = new JPanel(new BorderLayout() );
         topPanePanel.add(mazeMonitorTable, BorderLayout.NORTH);
