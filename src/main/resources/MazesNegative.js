@@ -1,3 +1,5 @@
+var TARGET_FOUND_EVENT = bp.Event("targetFound");
+
 function enterEvent(c,r) {
     return bp.Event("Enter (" + c + ","  + r + ")");//, {col:c, row:r});
 }

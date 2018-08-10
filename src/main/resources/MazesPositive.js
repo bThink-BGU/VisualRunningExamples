@@ -1,3 +1,5 @@
+var TARGET_FOUND_EVENT = bp.Event("targetFound");
+
 function enterEvent(c, r) {
     return bp.Event("Enter (" + c + "," + r + ")");//, {col:c, row:r});
 }
@@ -96,8 +98,7 @@ function addWalker(col, row) {
         });
         while (true) {
             var evt = bp.sync({
-                request: adjacentCellEntries(curCol, curRow),
-                interrupt: TARGET_FOUND_EVENT
+                request: adjacentCellEntries(curCol, curRow)
             });
             var coords = evt2coord(evt);
             curCol = coords.col;

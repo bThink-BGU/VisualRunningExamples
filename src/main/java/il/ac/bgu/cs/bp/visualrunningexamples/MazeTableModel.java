@@ -47,7 +47,7 @@ public class MazeTableModel extends AbstractTableModel {
         int max = 0;
         List<String> rowList = new ArrayList<>(newRows.size());
         for ( String s:newRows ) {
-            s = s.trim();
+            s = ltrim(s);
             min = s.length() < min ? s.length() : min;
             max = s.length() > max ? s.length() : max;
             rowList.add(s);
@@ -66,6 +66,7 @@ public class MazeTableModel extends AbstractTableModel {
         for ( int i=0; i<lastEntry.length; i++ ){
             lastEntry[i] = new long[columnCount];
         }
+        resetCellEntries();
         currentEntry = 0;
         fireTableStructureChanged();
     }
@@ -82,10 +83,33 @@ public class MazeTableModel extends AbstractTableModel {
 
     @Override
     public CellValue getValueAt(int rowIndex, int columnIndex) {
-        return new CellValue( rows.get(rowIndex).charAt(columnIndex), currentEntry-lastEntry[rowIndex][columnIndex]);
+        long age = lastEntry[rowIndex][columnIndex];
+        if ( age != -1 ) {
+            age = currentEntry-age;
+        }
+        return new CellValue( rows.get(rowIndex).charAt(columnIndex), age);
     }
     
-    public void addEntry( int row, int column ){
+    public void addCellEntry( int row, int column ){
         lastEntry[row][column] = ++currentEntry;
+        fireTableDataChanged();
+    }
+
+    public List<String> getRows() {
+        return rows;
+    }
+    
+    public final void resetCellEntries(){
+        for (long[] lastEntry1 : lastEntry) {
+            Arrays.fill(lastEntry1, -1l);
+        }  
+        fireTableDataChanged();
+    }
+    
+    private String ltrim( String in ) {
+        while ( in.length() > 0 && in.endsWith(" ") ){
+            in = in.substring(0, in.length()-1);
+        }
+        return in;
     }
 }
