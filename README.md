@@ -10,9 +10,13 @@ This program may also serve as an example of using BPjs in a "normal" applicatio
 ## Screencaps
 
 Running maze simulation:
+
+
 [![images/sc-run.png](images/sc-run.png)](https://vimeo.com/284430892)
 
 Finding maze solution using verification:
+
+
 [![images/sc-run.png](images/sc-verify.png)](https://vimeo.com/284431112)
 
 ---
