@@ -7,6 +7,15 @@ Currently, it provides a "playground" for running and verifying maze models.
 
 This program may also serve as an example of using BPjs in a "normal" application.
 
+## Running from the commandline:
+
+Maven Project:
+
+```
+mvn exec:java
+```
+
+
 ## Screencaps
 
 Running maze simulation:

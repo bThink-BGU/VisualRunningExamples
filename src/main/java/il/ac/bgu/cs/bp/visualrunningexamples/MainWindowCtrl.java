@@ -195,7 +195,7 @@ public class MainWindowCtrl {
         mazeTableCellRenderer.setShowAnyAge(true);
         addToLog("---");
         addToLog("Verification completed: " + (res.isCounterExampleFound() ? "" : "no ") + "counterexample found.");
-        addToLog(String.format("Visited %,d states, crossing %,d edges.", res.getScannedStatesCount(), res.getEdgesScanned()));
+        addToLog(String.format("Visited %,d states.", res.getScannedStatesCount()));
         addToLog(String.format("%,d milliseconds", res.getTimeMillies()));
         
         if ( ! res.isVerifiedSuccessfully() ) {
