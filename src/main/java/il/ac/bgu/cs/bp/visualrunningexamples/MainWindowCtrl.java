@@ -8,12 +8,15 @@ import il.ac.bgu.cs.bp.bpjs.model.BProgram;
 import il.ac.bgu.cs.bp.bpjs.model.StringBProgram;
 import il.ac.bgu.cs.bp.bpjs.model.eventselection.PausingEventSelectionStrategyDecorator;
 import il.ac.bgu.cs.bp.bpjs.model.eventselection.SimpleEventSelectionStrategy;
+import java.awt.BasicStroke;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicBoolean;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import javax.swing.Box;
@@ -347,7 +350,31 @@ public class MainWindowCtrl {
         buttons.add(stopBtn);
         
         mazeTableModel = new MazeTableModel();
-        mazeMonitorTable = new JTable(mazeTableModel);
+        mazeMonitorTable = new JTable(mazeTableModel){
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                List<MazeTableModel.Entry> navigationLocations = mazeTableModel.getNavigationLocations();
+                int cellWidth = mazeMonitorTable.getWidth()/mazeTableModel.getColumnCount();
+                int cellHeight = mazeMonitorTable.getHeight()/mazeTableModel.getRowCount();
+                
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setStroke( new BasicStroke(5) );
+                g2.setColor( new Color(0,0,0,.5f) );
+                
+                int[] xPoints = new int[navigationLocations.size()];
+                int[] yPoints = new int[navigationLocations.size()];
+                
+                int i=0;
+                for ( MazeTableModel.Entry e : navigationLocations ) {
+                    xPoints[i] = e.x*cellWidth + cellWidth/2;
+                    yPoints[i] = e.y*cellHeight + cellHeight/2;
+                    i++;
+                }
+                g2.drawPolyline(xPoints, yPoints, i);
+            }
+            
+        };
         mazeMonitorTable.setFillsViewportHeight(true);
         mazeMonitorTable.setIntercellSpacing(new Dimension(0,0));
         mazeMonitorTable.setCellSelectionEnabled(false);

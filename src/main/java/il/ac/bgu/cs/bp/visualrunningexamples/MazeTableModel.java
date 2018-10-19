@@ -12,11 +12,16 @@ import javax.swing.table.AbstractTableModel;
  */
 public class MazeTableModel extends AbstractTableModel {
     
-    private List<String> rows;
-    private int columnCount;
-    private long[][] lastEntry;
-    private long currentEntry;
-    
+    public static class Entry {
+        public final int x, y;
+
+        public Entry(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+        
+    }    
+        
     public static class CellValue {
         
         public enum Type {
@@ -33,8 +38,13 @@ public class MazeTableModel extends AbstractTableModel {
             type = (value==' '||value=='s') ? Type.SPACE
                                 : (value=='t') ? Type.TARGET : Type.WALL;
         }
-
     }
+    
+    private List<String> rows;
+    private int columnCount;
+    private long[][] lastEntry;
+    private long currentEntry;
+    private final List<Entry> navigationLocations = new ArrayList<>();
     
     public MazeTableModel() {
         rows = Arrays.asList(" ");
@@ -92,17 +102,23 @@ public class MazeTableModel extends AbstractTableModel {
     
     public void addCellEntry( int row, int column ){
         lastEntry[row][column] = ++currentEntry;
+        navigationLocations.add( new Entry(column,row) );
         fireTableDataChanged();
     }
 
     public List<String> getRows() {
         return rows;
     }
+
+    public List<Entry> getNavigationLocations() {
+        return navigationLocations;
+    }
     
     public final void resetCellEntries(){
         for (long[] lastEntry1 : lastEntry) {
             Arrays.fill(lastEntry1, -1l);
         }  
+        navigationLocations.clear();
         fireTableDataChanged();
     }
     
