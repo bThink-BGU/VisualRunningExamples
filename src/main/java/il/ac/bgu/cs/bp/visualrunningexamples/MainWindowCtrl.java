@@ -32,6 +32,8 @@ import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 import org.fife.ui.rsyntaxtextarea.RSyntaxTextArea;
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants;
 
@@ -53,14 +55,8 @@ public class MainWindowCtrl {
     private final MazeRepo mazes = new MazeRepo();
     private final CodeRepo codes = new CodeRepo();
     private JButton runBtn, verifyBtn, stopBtn;
-    private final AtomicBoolean stopFlag = new AtomicBoolean(false);
-
-    
-    private static class StopException extends RuntimeException {
-        // A very ugly way of stopping a BProgramRunner. 
-        // Will go away once https://github.com/bThink-BGU/BPjs/issues/53
-        // is implemented.
-    };
+    private BProgramRunner bprogramRunner = null;
+    private boolean mazeChanged = true;
     
     private void start() {
         createComponents();
@@ -85,13 +81,13 @@ public class MainWindowCtrl {
         
         // Setup the b-program from the source
         BProgram bprog = new StringBProgram(programEditor.getText() );
-        BProgramRunner rnr = new BProgramRunner(bprog);
+        bprogramRunner = new BProgramRunner(bprog);
         
         // add the maze
         String mazeJs = mazeTableModel.getRows().stream().map( r -> "\"" + r + "\"").collect( joining(",", "maze=[", "];"));
         bprog.prependSource(mazeJs);
         
-        rnr.addListener(new BProgramRunnerListenerImpl(this));
+        bprogramRunner.addListener(new BProgramRunnerListenerImpl(this));
         
         // set pausing ESS
         PausingEventSelectionStrategyDecorator pausingESS =
@@ -99,10 +95,6 @@ public class MainWindowCtrl {
         bprog.setEventSelectionStrategy(pausingESS);
         
         pausingESS.setListener( pess -> {
-            if ( stopFlag.get() ){
-                stopFlag.set(false);
-                throw new StopException();
-            }
             try {
                 Thread.sleep(150);
                 pess.unpause();
@@ -118,10 +110,7 @@ public class MainWindowCtrl {
         // go!
         new Thread(()->{
             try{
-                rnr.run();
-            } catch ( StopException se ) {
-                setInProgress(false);
-                
+                bprogramRunner.run();
             } catch ( Exception e ) {
                 e.printStackTrace(System.out);
                 addToLog(e.getMessage());
@@ -134,7 +123,7 @@ public class MainWindowCtrl {
         stopBtn.setEnabled(false);
         
         BProgram bprog = new StringBProgram(programEditor.getText() );
-        BProgramRunner rnr = new BProgramRunner(bprog);
+        bprogramRunner = new BProgramRunner(bprog);
         
         // add the maze
         String mazeJs = mazeTableModel.getRows().stream().map( r -> "\"" + r + "\"").collect( joining(",", "maze=[", "];"));
@@ -219,7 +208,6 @@ public class MainWindowCtrl {
         
     }
     
-    
     void setInProgress(boolean inProgress) {
         SwingUtilities.invokeLater(()->{
             stopBtn.setEnabled(inProgress);
@@ -256,15 +244,40 @@ public class MainWindowCtrl {
         });
         
         tabs.addChangeListener( changeEvt -> {
-           if ( tabs.getSelectedIndex() == 2 ) {
-               // we moved to the monitor
-               mazeTableModel.setRows(Arrays.asList(mazeEditor.getText().split("\\n")));
-           }
+            if ( tabs.getSelectedIndex() == 2 ) {
+                // we moved to the monitor
+                if ( mazeChanged ) {
+                    mazeTableModel.setRows(Arrays.asList(mazeEditor.getText().split("\\n")));
+                    mazeChanged = false;
+                }
+            }
         });
         
         runBtn.addActionListener(e->runBprogram());
-        stopBtn.addActionListener( c -> stopFlag.set(true));
+        stopBtn.addActionListener( c -> {
+            if ( bprogramRunner!=null ) {
+                bprogramRunner.halt();
+            }
+        });
         verifyBtn.addActionListener( a->verifyBProgram() );
+        DocumentListener documentListener = new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                mazeChanged=true;
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                mazeChanged=true;
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                mazeChanged=true;
+            }
+        };
+        
+        mazeEditor.getDocument().addDocumentListener(documentListener);
     }
     
     private void createComponents() {

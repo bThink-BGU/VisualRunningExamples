@@ -43,6 +43,12 @@ class BProgramRunnerListenerImpl implements BProgramRunnerListener {
     }
 
     @Override
+    public void halted(BProgram bp) {
+        mwCtrl.addToLog("Program Halted");
+        mwCtrl.setInProgress(false);
+    }
+    
+    @Override
     public void assertionFailed(BProgram bp, FailedAssertion theFailedAssertion) {
         mwCtrl.addToLog("Failed Assertion: " + theFailedAssertion.getMessage());
     }
