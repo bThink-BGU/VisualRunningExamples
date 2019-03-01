@@ -20,6 +20,8 @@ public class MazeTableCellRenderer implements TableCellRenderer {
     
     private int minimalAgeColorComp = 255;
     
+    private final Color TRAP_COLOR = new Color(255,100,0);
+    
     public MazeTableCellRenderer() {
         Font f = new Font(Font.MONOSPACED, Font.PLAIN, 20);
         wallLbl = new JLabel();
@@ -40,6 +42,7 @@ public class MazeTableCellRenderer implements TableCellRenderer {
         if ( value instanceof MazeTableModel.CellValue ) {
             MazeTableModel.CellValue cv = (MazeTableModel.CellValue) value;
             JLabel outputLabel = wallLbl;
+            spaceLbl.setForeground(Color.BLACK);
             switch ( cv.type ) {
                 case SPACE:
                     if ( cv.age == -1 ) {
@@ -53,7 +56,8 @@ public class MazeTableCellRenderer implements TableCellRenderer {
                     break;
                     
                 case TARGET:
-                    spaceLbl.setBackground(Color.YELLOW);
+                    spaceLbl.setBackground(TRAP_COLOR);
+                    spaceLbl.setForeground(Color.YELLOW);
                     spaceLbl.setText(cv.age == 0 ? "•" : "t");
                     outputLabel = spaceLbl;
                     break;

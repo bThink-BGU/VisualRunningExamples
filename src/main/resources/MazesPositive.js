@@ -1,4 +1,4 @@
-var TARGET_FOUND_EVENT = bp.Event("targetFound");
+var ROBOT_TRAPPED_EVENT = bp.Event("Robot fell into trap");
 
 function enterEvent(c, r) {
     return bp.Event("Enter (" + c + "," + r + ")");//, {col:c, row:r});
@@ -83,8 +83,8 @@ function addTargetCell(col, row) {
         });
 
         bp.sync({
-            request: TARGET_FOUND_EVENT,
-            block: bp.allExcept(TARGET_FOUND_EVENT)
+           request: ROBOT_TRAPPED_EVENT,
+           block: bp.allExcept( ROBOT_TRAPPED_EVENT )
         });
     });
 }

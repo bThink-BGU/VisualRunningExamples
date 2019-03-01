@@ -3,9 +3,9 @@
  */
 
 // Requirement b-thread: the walker should not fall into the trap.
-bp.registerBThread("don't hit target", function(){
-	bp.sync({waitFor:TARGET_FOUND_EVENT});
-	bp.ASSERT(false,"Maze walker fell into the trap.");
+bp.registerBThread("Robot not falling into trap", function(){
+	bp.sync({waitFor:ROBOT_TRAPPED_EVENT});
+	bp.ASSERT(false,"The robot fell into the trap.");
 });
 
 // Assumption b-thread: we're visiting each cell at most once.

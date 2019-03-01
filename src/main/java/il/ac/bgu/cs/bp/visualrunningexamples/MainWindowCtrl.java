@@ -1,8 +1,10 @@
 package il.ac.bgu.cs.bp.visualrunningexamples;
 
 import il.ac.bgu.cs.bp.bpjs.analysis.DfsBProgramVerifier;
-import il.ac.bgu.cs.bp.bpjs.analysis.Node;
+import il.ac.bgu.cs.bp.bpjs.analysis.DfsTraversalNode;
+import il.ac.bgu.cs.bp.bpjs.analysis.ExecutionTraceInspections;
 import il.ac.bgu.cs.bp.bpjs.analysis.VerificationResult;
+import il.ac.bgu.cs.bp.bpjs.analysis.violations.Violation;
 import il.ac.bgu.cs.bp.bpjs.execution.BProgramRunner;
 import il.ac.bgu.cs.bp.bpjs.model.BProgram;
 import il.ac.bgu.cs.bp.bpjs.model.StringBProgram;
@@ -60,6 +62,7 @@ public class MainWindowCtrl {
     private JButton runBtn, verifyBtn, stopBtn;
     private BProgramRunner bprogramRunner = null;
     private boolean mazeChanged = true;
+    private boolean drawLines = false;
     
     private void start() {
         createComponents();
@@ -80,6 +83,7 @@ public class MainWindowCtrl {
     private void runBprogram() {
         
         setInProgress(true);
+        drawLines=false;
         mazeTableCellRenderer.setShowAnyAge(false);
         
         // Setup the b-program from the source
@@ -126,7 +130,6 @@ public class MainWindowCtrl {
         stopBtn.setEnabled(false);
         
         BProgram bprog = new StringBProgram(programEditor.getText() );
-        bprogramRunner = new BProgramRunner(bprog);
         
         // add the maze
         String mazeJs = mazeTableModel.getRows().stream().map( r -> "\"" + r + "\"").collect( joining(",", "maze=[", "];"));
@@ -138,10 +141,7 @@ public class MainWindowCtrl {
         DfsBProgramVerifier vfr = new DfsBProgramVerifier();
         vfr.setIterationCountGap(100);
         
-        // we need the below for the assumption thread specifying we visit each
-        // cell at most once. This requirement results in false-positive deadlocks.
-        // Updated version should probably take this from the UI.
-        vfr.setDetectDeadlocks(false);
+        vfr.addInspection( ExecutionTraceInspections.FAILED_ASSERTIONS );
         
         vfr.setProgressListener( new DfsBProgramVerifier.ProgressListener() {
             @Override
@@ -155,7 +155,7 @@ public class MainWindowCtrl {
             }
 
             @Override
-            public void maxTraceLengthHit(List<Node> trace, DfsBProgramVerifier v) {
+            public void maxTraceLengthHit(List<DfsTraversalNode> trace, DfsBProgramVerifier v) {
                 addToLog(" (max trace length hit)");
             }
 
@@ -163,6 +163,11 @@ public class MainWindowCtrl {
             public void done(DfsBProgramVerifier v) {
                 addToLog("Verification done");
                 setInProgress(false);
+            }
+
+            @Override
+            public boolean violationFound(Violation aViolation, DfsBProgramVerifier vfr) {
+                return false; // do not continue searching,
             }
         });
         
@@ -186,29 +191,26 @@ public class MainWindowCtrl {
     private void setVerificationResult(VerificationResult res) {
         mazeTableCellRenderer.setShowAnyAge(true);
         addToLog("---");
-        addToLog("Verification completed: " + (res.isCounterExampleFound() ? "" : "no ") + "counterexample found.");
+        addToLog("Verification completed: " + (res.isViolationFound()? "" : "no ") + "counterexample found.");
         addToLog(String.format("Visited %,d states.", res.getScannedStatesCount()));
         addToLog(String.format("%,d milliseconds", res.getTimeMillies()));
-        
-        if ( ! res.isVerifiedSuccessfully() ) {
-            addToLog("Violation type: " + res.getViolationType() );
-            if ( res.getCounterExampleTrace() != null ) {
-                List<String> entryEventNames = res.getCounterExampleTrace().stream()
-                    .filter( node->node.getLastEvent() != null )
-                    .filter( node->node.getLastEvent().getName().startsWith("Enter") )
-                    .map( node -> node.getLastEvent().getName() )
-                    .collect( toList() );
-                
-                entryEventNames.forEach( s -> {
-                   String[] comps = s.substring(7).split(",");
-                    comps[1] = comps[1].replace(")", "");
-                    mazeTableModel.addCellEntry(Integer.valueOf(comps[1]), Integer.valueOf(comps[0])); 
-                });
-                
-                mazeTableModel.fireTableDataChanged();
-            }
-        }
-        
+        drawLines = true;
+        res.getViolation().ifPresent( violation -> {
+            addToLog("Violation: " + violation.decsribe() );
+            List<String> entryEventNames = violation.getCounterExampleTrace().getNodes().stream()
+                .filter( node->node.getEvent().isPresent() )
+                .map( node -> node.getEvent().get().getName() )
+                .filter( s->s.startsWith("Enter") )
+                .collect( toList() );
+
+            entryEventNames.forEach( s -> {
+               String[] comps = s.substring(7).split(",");
+                comps[1] = comps[1].replace(")", "");
+                mazeTableModel.addCellEntry(Integer.valueOf(comps[1]), Integer.valueOf(comps[0])); 
+            });
+
+            mazeTableModel.fireTableDataChanged();
+        });
     }
     
     void setInProgress(boolean inProgress) {
@@ -354,24 +356,26 @@ public class MainWindowCtrl {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                List<MazeTableModel.Entry> navigationLocations = mazeTableModel.getNavigationLocations();
-                int cellWidth = mazeMonitorTable.getWidth()/mazeTableModel.getColumnCount();
-                int cellHeight = mazeMonitorTable.getHeight()/mazeTableModel.getRowCount();
-                
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setStroke( new BasicStroke(5) );
-                g2.setColor( new Color(0,0,0,.5f) );
-                
-                int[] xPoints = new int[navigationLocations.size()];
-                int[] yPoints = new int[navigationLocations.size()];
-                
-                int i=0;
-                for ( MazeTableModel.Entry e : navigationLocations ) {
-                    xPoints[i] = e.x*cellWidth + cellWidth/2;
-                    yPoints[i] = e.y*cellHeight + cellHeight/2;
-                    i++;
+                if ( drawLines ) {
+                    List<MazeTableModel.Entry> navigationLocations = mazeTableModel.getNavigationLocations();
+                    double cellWidth = getWidth()/(double)getColumnCount();
+                    double cellHeight = getHeight()/(double)getRowCount();
+
+                    Graphics2D g2 = (Graphics2D) g;
+                    g2.setStroke( new BasicStroke(5) );
+                    g2.setColor( new Color(0,0,0,.5f) );
+
+                    int[] xPoints = new int[navigationLocations.size()];
+                    int[] yPoints = new int[navigationLocations.size()];
+                    
+                    int i=0;
+                    for ( MazeTableModel.Entry e : navigationLocations ) {
+                        xPoints[i] = (int)(e.x*cellWidth + cellWidth/2);
+                        yPoints[i] = (int)(e.y*cellHeight + cellHeight/2);
+                        i++;
+                    }
+                    g2.drawPolyline(xPoints, yPoints, i);
                 }
-                g2.drawPolyline(xPoints, yPoints, i);
             }
             
         };
