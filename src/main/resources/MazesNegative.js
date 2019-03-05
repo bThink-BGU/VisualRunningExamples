@@ -14,6 +14,8 @@ function adjacentCellEntries(col, row) {
 
 }
 
+var cellWait = [anyEntrance, ROBOT_TRAPPED_EVENT];
+
 ////////////////////////
 ///// functions 
 function parseMaze(mazeLines) {
@@ -48,7 +50,7 @@ function addSpaceCell( col, row ) {
                 bp.sync({waitFor:adjacentCellEntries(col, row)});
                 bp.sync({
                     request: enterEvent(col, row),
-                    waitFor: anyEntrance
+                    waitFor: cellWait
                 });
             }
         }
@@ -64,14 +66,16 @@ function addSpaceCell( col, row ) {
  */
 function addTargetCell(col, row) {
     bp.registerBThread("Target(c:"+col+" r:"+row+")", function(){
-       bp.sync({
-           waitFor: enterEvent(col, row)
-       }); 
-       
-       bp.sync({
-           request: ROBOT_TRAPPED_EVENT,
-           block: bp.allExcept( ROBOT_TRAPPED_EVENT )
-       });
+       while ( true ) {
+	       bp.sync({
+	           waitFor: enterEvent(col, row)
+	       }); 
+	       
+	       bp.sync({
+	           request: ROBOT_TRAPPED_EVENT,
+	           block: bp.allExcept( ROBOT_TRAPPED_EVENT )
+	       });
+       }
     });
 }
 

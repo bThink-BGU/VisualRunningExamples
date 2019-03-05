@@ -33,7 +33,7 @@ class BProgramRunnerListenerImpl implements BProgramRunnerListener {
     @Override
     public void superstepDone(BProgram bp) {
         mwCtrl.addToLog("Superstep done - awaiting external events");
-        mwCtrl.setInProgress(false); // generally not true, but here it is, since there's no environment.
+//        mwCtrl.setInProgress(false); // generally not true, but here it is, since there's no environment.
     }
 
     @Override

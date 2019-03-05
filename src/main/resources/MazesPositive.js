@@ -77,18 +77,19 @@ function addEnclosingWalls(cols, rows) {
  * @returns {undefined}
  */
 function addTargetCell(col, row) {
-    bp.registerBThread("Target(c:" + col + " r:" + row + ")", function () {
-        bp.sync({
-            waitFor: enterEvent(col, row)
-        });
-
-        bp.sync({
-           request: ROBOT_TRAPPED_EVENT,
-           block: bp.allExcept( ROBOT_TRAPPED_EVENT )
-        });
+    bp.registerBThread("Target(c:"+col+" r:"+row+")", function(){
+       while ( true ) {
+	       bp.sync({
+	           waitFor: enterEvent(col, row)
+	       }); 
+	       
+	       bp.sync({
+	           request: ROBOT_TRAPPED_EVENT,
+	           block: bp.allExcept( ROBOT_TRAPPED_EVENT )
+	       });
+       }
     });
 }
-
 function addWalker(col, row) {
     bp.registerBThread("starter(c:" + col + " r:" + row + ")", function () {
         var curCol = col;

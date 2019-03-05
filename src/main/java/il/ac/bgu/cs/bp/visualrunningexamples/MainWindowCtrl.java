@@ -6,6 +6,7 @@ import il.ac.bgu.cs.bp.bpjs.analysis.ExecutionTraceInspections;
 import il.ac.bgu.cs.bp.bpjs.analysis.VerificationResult;
 import il.ac.bgu.cs.bp.bpjs.analysis.violations.Violation;
 import il.ac.bgu.cs.bp.bpjs.execution.BProgramRunner;
+import il.ac.bgu.cs.bp.bpjs.model.BEvent;
 import il.ac.bgu.cs.bp.bpjs.model.BProgram;
 import il.ac.bgu.cs.bp.bpjs.model.StringBProgram;
 import il.ac.bgu.cs.bp.bpjs.model.eventselection.PausingEventSelectionStrategyDecorator;
@@ -17,6 +18,8 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.Arrays;
 import java.util.List;
 import static java.util.stream.Collectors.joining;
@@ -63,6 +66,7 @@ public class MainWindowCtrl {
     private BProgramRunner bprogramRunner = null;
     private boolean mazeChanged = true;
     private boolean drawLines = false;
+    private boolean isRunning = false;
     
     private void start() {
         createComponents();
@@ -88,6 +92,7 @@ public class MainWindowCtrl {
         
         // Setup the b-program from the source
         BProgram bprog = new StringBProgram(programEditor.getText() );
+        bprog.setWaitForExternalEvents( true );
         bprogramRunner = new BProgramRunner(bprog);
         
         // add the maze
@@ -121,6 +126,7 @@ public class MainWindowCtrl {
             } catch ( Exception e ) {
                 e.printStackTrace(System.out);
                 addToLog(e.getMessage());
+                setInProgress(false);
             }
         }).start();
     }
@@ -215,6 +221,7 @@ public class MainWindowCtrl {
     
     void setInProgress(boolean inProgress) {
         SwingUtilities.invokeLater(()->{
+            isRunning = inProgress;
             stopBtn.setEnabled(inProgress);
             runBtn.setEnabled(!inProgress);
             verifyBtn.setEnabled(!inProgress);
@@ -263,6 +270,7 @@ public class MainWindowCtrl {
             if ( bprogramRunner!=null ) {
                 bprogramRunner.halt();
             }
+            setInProgress(false);
         });
         verifyBtn.addActionListener( a->verifyBProgram() );
         DocumentListener documentListener = new DocumentListener() {
@@ -283,6 +291,21 @@ public class MainWindowCtrl {
         };
         
         mazeEditor.getDocument().addDocumentListener(documentListener);
+        
+        mazeMonitorTable.addMouseListener( new MouseAdapter(){
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                int row = mazeMonitorTable.rowAtPoint(e.getPoint());
+                int col = mazeMonitorTable.columnAtPoint(e.getPoint());
+                
+                if ( isRunning ) {
+                    BEvent enterEvent = new BEvent("Enter (" + col + ","  + row + ")");
+                    System.out.println("enqueuing " + enterEvent);
+                    bprogramRunner.getBProgram().enqueueExternalEvent(enterEvent);
+                }
+            }
+            
+        });
     }
     
     private void createComponents() {
